@@ -13,7 +13,7 @@ l.setLevel(logging.DEBUG)
 
 # various locations
 module_dir = os.path.dirname(os.path.realpath(__file__))
-log_file = module_dir + "/ida.log"
+log_file = "/tmp/idalink.log"
 ida_script = module_dir + "/run_ida.sh"
 ida_dir = module_dir
 
