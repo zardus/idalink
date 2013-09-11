@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# This code is GPLv3. See LICENSE file.
+
 import idc
 print idc.ARGV
 

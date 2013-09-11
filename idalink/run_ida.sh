@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This code is GPLv3. See LICENSE file.
+
 export TERM=xterm
 
 IDADIR=$1
