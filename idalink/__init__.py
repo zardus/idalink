@@ -8,7 +8,6 @@ import subprocess
 import logging
 import rpyc
 import os
-import standard_logging
 
 l = logging.getLogger("idalink")
 l.setLevel(logging.DEBUG)
