@@ -10,7 +10,8 @@ idalink requires the following:
 
 - ida
 - screen
-- rpyc (included in the repository, actually, because it's easier to use from within IDA that way)
+- rpyc in your Python environment outside of IDA
+- rpyc in your IDA Python environment. This is actually included in the repository, because it's easier.
 
 ## Setup
 
@@ -49,3 +50,4 @@ There are a few issues.
 
 - the whole thing lives in \_\_init\_\_.py. I feel that this is somehow dirty.
 - the detection for whether to use idal or idal64 is very simplistic (greps for 32 or 64 in the output of the file command) and probably needs to be improved
+- a random port between 40000 and 49999 is chosen for communication, with no error-checking.
