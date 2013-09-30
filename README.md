@@ -29,18 +29,21 @@ To use idalink, put it in a place where you can import it and do, in any python 
 	#	idalink.ida_dir = "/path/to/ida"
 
 	# connect
-	idalink.make_idalink("/path/to/binary/file")
+	ida = idalink.make_idalink("/path/to/binary/file")
 
 	# use idc
-	print "Default ScreenEA is %x" % idalink.idc.ScreenEA()
+	print "Default ScreenEA is %x" % ida.idc.ScreenEA()
 
 	# use idautils
-	for s in idalink.idautils.Segments():
-		print "Segment at %x is named %s" % (s, idalink.idc.SegName(s))
+	for s in ida.idautils.Segments():
+		print "Segment at %x is named %s" % (s, ida.idc.SegName(s))
 
 	# use idaapi
-	for s in idalink.idautils.Functions():
-		print "Byte at at %x is %x" % (s, idalink.idaapi.get_byte(s))
+	for s in ida.idautils.Functions():
+		print "Byte at at %x is %x" % (s, ida.idaapi.get_byte(s))
+
+	# close IDA (or allow it to be garbage-collected)
+	ida.link.close()
 
 And that's that. Basically, you get access to the IDA API from outside of IDA. Good stuff.
 
