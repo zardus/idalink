@@ -10,7 +10,6 @@ import rpyc
 import os
 
 l = logging.getLogger("idalink")
-l.setLevel(logging.DEBUG)
 
 # various locations
 module_dir = os.path.dirname(os.path.realpath(__file__))
@@ -18,7 +17,7 @@ log_file = "/tmp/idalink.log"
 ida_script = module_dir + "/run_ida.sh"
 ida_dir = module_dir
 
-print "Script: %s" % ida_script
+l.info("IDA launch script: %s" % ida_script)
 
 import collections
 IDA = collections.namedtuple("IDA", [ "link", "idc", "idaapi", "idautils" ])
@@ -37,14 +36,18 @@ def connect_ida(port):
 
 	return IDA(ida, idc, idaapi, idautils)
 
-def make_idalink(filename):
+def make_idalink(filename, connect_retries=60):
 	port = random.randint(40000, 49999)
 	spawn_ida(filename, port)
 
-	while True:
+	while connect_retries:
 		try:
 			time.sleep(1)
 			l.debug("Trying to connect to IDA on port %d" % port)
 			return connect_ida(port)
 		except Exception:
 			l.debug("... failed. Retrying.")
+
+		connect_retries -= 1
+
+	raise IDALinkError("Failed to connect to IDA on port %d for filename %s" % (port, filename))
