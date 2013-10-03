@@ -12,7 +12,7 @@ def ondemand(f):
 	func.__name__ = f.__name__
 	return func
 
-class IDAMem(dict):
+class IDAMem:
 	def __init__(self, ida, initial_mem = None, caching = True, lazy = True):
 		self.ida = ida
 		self.local = initial_mem if initial_mem is not None else { }
@@ -42,31 +42,31 @@ class IDAMem(dict):
 	# stuff that needs to be intercepted
 	def values(self):
 		self.pull()
-		return super.values(self)
+		return self.local.values()
 
 	def items(self):
 		self.pull()
-		return super.items(self)
+		return self.local.items()
 
 	def iteritems(self):
 		self.pull()
-		return super.iteritems(self)
+		return self.local.iteritems()
 
 	def itervalues(self):
 		self.pull()
-		return super.itervalues(self)
+		return self.local.itervalues()
 
 	def viewitems(self):
 		self.pull()
-		return super.viewitems(self)
+		return self.local.viewitems()
 
 	def viewkeys(self):
 		self.pull()
-		return super.viewkeys(self)
+		return self.local.viewkeys()
 
 	def viewvalues(self):
 		self.pull()
-		return super.viewvalues(self)
+		return self.local.viewvalues()
 
 
 	# Gets the "heads" (instructions and data items) and head sizes from IDA
@@ -80,7 +80,7 @@ class IDAMem(dict):
 
 	# Returns a list of bytes that are in memory.
 	@ondemand
-	def keys(self):
+	def ida_keys(self):
 		keys = set()
 		for h,s in self.heads().iteritems():
 			for i in range(s):
@@ -90,8 +90,10 @@ class IDAMem(dict):
 				keys.add(h+i)
 		return list(keys)
 
+	def keys(self):
+		return list(set(self.ida_keys() + self.local.keys()))
+
 	# Pulls all the "mapped" memory from IDA
 	def pull(self):
-		for h,s in self.heads():
-			for i in range(s):
-				self.local[h+i] = self.ida.idaapi.get_byte(h+i)
+		for k in self.keys():
+			self.local[k] = self.ida.idaapi.get_byte(k)
