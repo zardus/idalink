@@ -29,7 +29,7 @@ To use idalink, put it in a place where you can import it and do, in any python 
 	#	idalink.ida_dir = "/path/to/ida"
 
 	# connect
-	ida = idalink.make_idalink("/path/to/binary/file")
+	ida = idalink.IDALink("/path/to/binary/file")
 
 	# use idc
 	print "Default ScreenEA is %x" % ida.idc.ScreenEA()
@@ -42,6 +42,9 @@ To use idalink, put it in a place where you can import it and do, in any python 
 	for s in ida.idautils.Functions():
 		print "Byte at at %x is %x" % (s, ida.idaapi.get_byte(s))
 
+	# access IDA memory in a dict way
+	print "Byte at at %x is %x" % (s, ida.mem[s])
+
 	# close IDA (or allow it to be garbage-collected)
 	ida.link.close()
 
@@ -51,6 +54,6 @@ And that's that. Basically, you get access to the IDA API from outside of IDA. G
 
 There are a few issues.
 
-- the whole thing lives in \_\_init\_\_.py. I feel that this is somehow dirty.
 - the detection for whether to use idal or idal64 is very simplistic (greps for 32 or 64 in the output of the file command) and probably needs to be improved
-- a random port between 40000 and 49999 is chosen for communication, with no error-checking.
+- a random port between 40000 and 49999 is chosen for communication, with no error-checking for failed IDA startups.
+- ida-backed memory is not really tested, and uses Heads for getting the "mapped" list, which is slow and incomplete
