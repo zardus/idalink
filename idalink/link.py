@@ -42,6 +42,7 @@ class IDALink:
 	def __init__(self, filename, connect_retries = 60, port = None, initial_mem = None):
 		port = port if port else random.randint(40000, 49999)
 		spawn_ida(filename, port)
+                self.filename = filename
 
 		for t in range(connect_retries):
 			# TODO: detect IDA failure intelligently
@@ -55,3 +56,6 @@ class IDALink:
 				l.debug("... failed. Retrying.")
 
 		raise IDALinkError("Failed to connect to IDA on port %d for filename %s" % (port, filename))
+
+        def get_filename(self):
+                return self.filename
