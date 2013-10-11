@@ -18,8 +18,8 @@ echo "Launching IDA on file $FILE with script: $SCRIPT" >> $LOGFILE
 echo "... log: $LOGFILE" >> $LOGFILE
 echo "... arguments: $ARGS" >> $LOGFILE
 
-( file $FILE | egrep -q "[^[:digit:]]64[^[:digit:]]" ) && IDABIN=idal64
-( file $FILE | egrep -q "[^[:digit:]]32[^[:digit:]]" ) && IDABIN=idal
+( file $FILE | egrep -q "[^[:alnum:][:digit:]]64[^[:alnum:][:digit:]]" ) && IDABIN=idal64
+( file $FILE | egrep -q "[^[:alnum:][:digit:]]32[^[:alnum:][:digit:]]" ) && IDABIN=idal
 
 echo "... detected executable: $IDABIN" >> $LOGFILE
 

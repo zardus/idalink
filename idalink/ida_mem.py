@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 
+import itertools
+import logging
+l = logging.getLogger("ida_mem")
+
 def ondemand(f):
 	name = f.__name__
 	def func(self, *args, **kwargs):
-		if hasattr(self, "_" + name):
-			return getattr(self, "_" + name)
+		if len(args) + len(kwargs) == 0:
+			if hasattr(self, "_" + name):
+				return getattr(self, "_" + name)
 
-		a = f(self, *args, **kwargs)
-		setattr(self, "_" + name, a)
-		return a
+			a = f(self, *args, **kwargs)
+			setattr(self, "_" + name, a)
+			return a
+		else:
+			return f(self, *args, **kwargs)
 	func.__name__ = f.__name__
 	return func
 
@@ -71,8 +78,15 @@ class IDAMem:
 
 	# Gets the "heads" (instructions and data items) and head sizes from IDA
 	@ondemand
-	def heads(self):
-		return { h:self.ida.idc.ItemSize(h) for h in self.ida.idautils.Heads() }
+	def heads(self, exclude = ()):
+		keys = [ -1 ] + list(exclude) + [ self.ida.idc.MAXADDR + 1 ]
+		ranges = [ j for j in [ ((keys[i]+1, keys[i+1]-1) if keys[i+1] - keys[i] > 1 else ()) for i in range(len(keys)-1) ] if j ]
+
+		heads = { }
+		for a,b in ranges:
+			r_heads = { h:self.ida.idc.ItemSize(h) for h in self.ida.idautils.Heads(a,b+1) }
+			heads.update(r_heads)
+		return heads
 
 	@ondemand
 	def segments(self):
@@ -82,10 +96,10 @@ class IDAMem:
 	@ondemand
 	def ida_keys(self):
 		keys = set()
-		for h,s in self.heads().iteritems():
+		for h,s in self.segments().iteritems():
 			for i in range(s):
 				keys.add(h+i)
-		for h,s in self.segments().iteritems():
+		for h,s in self.heads(exclude=keys).iteritems():
 			for i in range(s):
 				keys.add(h+i)
 		return list(keys)
@@ -93,7 +107,43 @@ class IDAMem:
 	def keys(self):
 		return list(set(self.ida_keys() + self.local.keys()))
 
+	# tries to quickly load a bunch of memory from IDA
+	# returns a dictionary where d[start] = content to support sparsely-defined memory in IDA
+	def load_memory(self, start, size):
+		d = { }
+		if size == 0:
+			return d
+
+		b = self.ida.idaapi.get_many_bytes(start, size)
+		if b is None:
+			if size == 1:
+				return d
+
+			mid = start + size/2
+			first_size = mid - start
+			second_size = size - first_size
+
+			#l.debug("Split range [%x,%x) into [%x,%x) and [%x,%x)", start, start + size, start, start + first_size, mid, mid + second_size)
+
+			d.update(self.load_memory(start, first_size))
+			d.update(self.load_memory(mid, second_size))
+		else:
+			d[start] = b
+
+		return d
+
 	# Pulls all the "mapped" memory from IDA
 	def pull(self):
-		for k in self.keys():
-			self.local[k] = self.ida.idaapi.get_byte(k)
+		keys = self.ida_keys()
+		def kf(x, c=itertools.count()):
+			return next(c)-x
+
+		ranges = [ (r[0], r[-1]) for r in [ list(g) for (x,g) in itertools.groupby(keys, kf) ] ]
+
+		for a,b in ranges:
+			size = b-a+1
+			contents = self.load_memory(a, size)
+
+			for start, bytes in contents.iteritems():
+				for n,i in enumerate(bytes):
+					self.local[start+n] = i
