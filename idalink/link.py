@@ -14,17 +14,30 @@ from ida_mem import IDAMem
 # various locations
 module_dir = os.path.dirname(os.path.realpath(__file__))
 log_file = "/tmp/idalink.log"
-ida_script = module_dir + "/run_ida.sh"
 ida_dir = module_dir
 
 import logging
 l = logging.getLogger("idalink")
-l.info("IDA launch script: %s" % ida_script)
+l.setLevel(logging.DEBUG)
 
-def spawn_ida(filename, port):
+def spawn_ida(filename, ida_prog, port):
 	fullpath = os.path.realpath(os.path.expanduser(filename))
-	l.info("Launching IDA on %s" % fullpath)
-	subprocess.call([ "screen", "-d", "-m", "--", ida_script, ida_dir, fullpath, log_file, module_dir + "/server.py", str(port) ])
+
+	# $IDADIR/$IDABIN -A -S"$SCRIPT $ARGS" -L$LOGFILE $FILE
+
+	ida_bin = ida_dir + "/" + ida_prog
+	server_script = module_dir + "/server.py"
+	server_args = str(port)
+
+	l.info("Launching IDA (%s) on %s, listening on port %d, logging to %s" % (ida_bin, fullpath, port, log_file))
+
+	command = [ "screen", "-d", "-m", "-L", "--" ] # run IDA through screen because otherwise its UI hangs
+	command += [ module_dir + "/ida_env.sh" ] # IDA needs some environment variables set (specifically, the TERM)
+	command += [ ida_bin, "-A" ] # run IDA in automatic mode
+	command += [ "-S" + server_script + " " + server_args ] # run our server script in IDA
+	command += [ "-L" + log_file ] # log stuff
+	command += [ fullpath ] # and, of course, load our file
+	subprocess.call(command)
 
 def connect_ida(port):
 	link = rpyc.classic.connect("localhost", port)
@@ -39,9 +52,9 @@ class IDALinkError(Exception):
 	pass
 
 class IDALink:
-	def __init__(self, filename, connect_retries = 60, port = None, initial_mem = None):
+	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, initial_mem = None):
 		port = port if port else random.randint(40000, 49999)
-		spawn_ida(filename, port)
+		spawn_ida(filename, ida_prog, port)
                 self.filename = filename
 
 		for t in range(connect_retries):

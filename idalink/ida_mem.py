@@ -93,7 +93,6 @@ class IDAMem:
 		return { s:(self.ida.idc.SegEnd(s) - self.ida.idc.SegStart(s)) for s in self.ida.idautils.Segments() }
 
 	# Returns a list of bytes that are in memory.
-	@ondemand
 	def ida_keys(self):
 		keys = set()
 		for h,s in self.segments().iteritems():
@@ -147,3 +146,9 @@ class IDAMem:
 			for start, bytes in contents.iteritems():
 				for n,i in enumerate(bytes):
 					self.local[start+n] = i
+
+	def reset(self):
+		self.local.clear()
+
+		if hasattr(self, "_heads"): delattr(self, "_heads")
+		if hasattr(self, "_segments"): delattr(self, "_segments")
