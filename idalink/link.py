@@ -7,7 +7,6 @@ import rpyc
 import time
 import random
 import subprocess
-import collections
 
 from ida_mem import IDAMem
 
@@ -41,6 +40,7 @@ def spawn_ida(filename, ida_prog, port):
 
 def connect_ida(port):
 	link = rpyc.classic.connect("localhost", port)
+	l.debug("Connected!")
 
 	idc = link.root.getmodule("idc")
 	idaapi = link.root.getmodule("idaapi")
@@ -52,7 +52,7 @@ class IDALinkError(Exception):
 	pass
 
 class IDALink:
-	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, initial_mem = None):
+	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, initial_mem = { }):
 		port = port if port else random.randint(40000, 49999)
 		spawn_ida(filename, ida_prog, port)
                 self.filename = filename
