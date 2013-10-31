@@ -33,16 +33,24 @@ class IDAMem(dict):
 		if b in self.local:
 			return self.local[b]
 
+		one = self.ida.idaapi.get_many_bytes(b, 1)
+
+		if not one:
+			if self.default_byte:
+				one = self.default_byte
+			else:
+				# trigger the key error
+				return self.local[b]
+
 		if not self.caching:
 			# return the byte if we're not caching
-			return self.ida.idaapi.get_byte(b)
+			return one
 
 		# cache the byte if it's not in a segment
 		seg_start = self.ida.idc.SegStart(b)
 		if seg_start == self.ida.idc.BADADDR:
-			r = self.ida.idaapi.get_byte(b)
-			self.local[b] = r
-			return r
+			self.local[b] = one
+			return one
 
 		# otherwise, cache the segment
 		seg_end = self.ida.idc.SegEnd(b)
@@ -156,7 +164,8 @@ class IDAMem(dict):
 
 		for start, bytes in contents.iteritems():
 			for n,i in enumerate(bytes):
-				self.local[start+n] = i
+				if start+n not in self.local:
+					self.local[start+n] = i
 
 	# Pulls all the "mapped" memory from IDA
 	def pull(self):
