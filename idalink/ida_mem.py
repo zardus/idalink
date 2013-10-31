@@ -20,10 +20,11 @@ def ondemand(f):
 	return func
 
 class IDAMem(dict):
-	def __init__(self, ida, initial_mem = { }, caching = True, lazy = True):
+	def __init__(self, ida, initial_mem = { }, caching = True, lazy = True, default_byte=None):
 		self.ida = ida
 		self.local = dict(initial_mem)
 		self.caching = caching
+		self.default_byte = default_byte
 
 		if not lazy:
 			self.pull()
@@ -130,8 +131,11 @@ class IDAMem(dict):
 		b = self.ida.idaapi.get_many_bytes(start, size)
 		if b is None:
 			if size == 1:
-				# default in IDA is 0xff
-				d[start] = chr(0xff)
+				if self.default_byte:
+					d[start] = self.default_byte
+				else:
+					# TODO: this probably causes issues because keys() doesn't match with reality. Consider adapting
+					return d
 				return d
 
 			mid = start + size/2
