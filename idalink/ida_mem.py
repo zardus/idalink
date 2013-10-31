@@ -20,11 +20,13 @@ def ondemand(f):
 	return func
 
 class IDAMem(dict):
-	def __init__(self, ida, initial_mem = { }, caching = True, lazy = True, default_byte=None):
+	def __init__(self, ida, initial_mem = { }, caching = True, lazy = True, default_byte=None, default_perm=7):
 		self.ida = ida
 		self.local = dict(initial_mem)
+		self.permissions = { }
 		self.caching = caching
 		self.default_byte = default_byte
+		self.default_perm = default_perm
 
 		if not lazy:
 			self.pull()
@@ -56,6 +58,26 @@ class IDAMem(dict):
 		seg_end = self.ida.idc.SegEnd(b)
 		self.load_memory(seg_start, seg_end - seg_start)
 		return self.local[b]
+
+	def get_perm(self, b):
+		if b in self.permissions:
+			return self.permissions[b]
+
+		seg_start = self.ida.idc.SegStart(b)
+		seg_end = self.ida.idc.SegEnd(b)
+
+		if seg_start == self.ida.idc.BADADDR:
+			# we can really only return the default here
+			return self.default_perms
+
+		p = self.ida.idc.GetSegmentAttr(seg_start, self.ida.idc.SEGATTR_PERM)
+
+		# cache the segment if we're into that sort of stuff
+		if self.caching:
+			for i in range(seg_start, seg_end):
+				self.permissions[i] = p
+
+		return p
 
 	def __setitem__(self, b, v):
 		self.local[b] = v
