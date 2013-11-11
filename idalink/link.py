@@ -7,6 +7,7 @@ import rpyc
 import time
 import random
 import subprocess
+import socket
 
 from ida_mem import IDAMem
 
@@ -65,7 +66,7 @@ class IDALink:
 				self.link, self.idc, self.idaapi, self.idautils = connect_ida(port)
 				self.mem = IDAMem(self, initial_mem)
 				return
-			except Exception:
+			except socket.error:
 				l.debug("... failed. Retrying.")
 
 		raise IDALinkError("Failed to connect to IDA on port %d for filename %s" % (port, filename))
