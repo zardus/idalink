@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import itertools
+import collections
 import logging
 l = logging.getLogger("ida_mem")
 
@@ -19,17 +19,14 @@ def ondemand(f):
 	func.__name__ = f.__name__
 	return func
 
-class IDAMem(dict):
-	def __init__(self, ida, initial_mem = { }, caching = True, lazy = True, default_byte=None, default_perm=7):
+class IDAMem(collections.MutableMapping):
+	def __init__(self, ida, initial_mem = { }, caching = True, default_byte=chr(0xff), default_perm=7):
 		self.ida = ida
 		self.local = dict(initial_mem)
 		self.permissions = { }
 		self.caching = caching
 		self.default_byte = default_byte
 		self.default_perm = default_perm
-
-		if not lazy:
-			self.pull()
 
 	def __getitem__(self, b):
 		if b in self.local:
@@ -38,11 +35,12 @@ class IDAMem(dict):
 		one = self.ida.idaapi.get_many_bytes(b, 1)
 
 		if not one:
+			l.debug("Byte 0x%x not found", b)
+
 			if self.default_byte:
 				one = self.default_byte
 			else:
-				# trigger the key error
-				return self.local[b]
+				raise KeyError(b)
 
 		if not self.caching:
 			# return the byte if we're not caching
@@ -52,12 +50,14 @@ class IDAMem(dict):
 		seg_start = self.ida.idc.SegStart(b)
 		if seg_start == self.ida.idc.BADADDR:
 			self.local[b] = one
-			return one
+		else:
+			# otherwise, cache the segment
+			seg_end = self.ida.idc.SegEnd(b)
+			seg_size = seg_end - seg_start
+			l.debug("Loading %d bytes from 0x%x" % (seg_size, seg_start))
+			self.load_memory(seg_start, seg_size)
 
-		# otherwise, cache the segment
-		seg_end = self.ida.idc.SegEnd(b)
-		self.load_memory(seg_start, seg_end - seg_start)
-		return self.local[b]
+		return one
 
 	def get_perm(self, b):
 		if b in self.permissions:
@@ -82,41 +82,8 @@ class IDAMem(dict):
 	def __setitem__(self, b, v):
 		self.local[b] = v
 
-	def __contains__(self, b):
-		return b in self.keys()
-
-	def has_key(self, k):
-		return k in self.keys()
-
-	# stuff that needs to be intercepted
-	def values(self):
-		self.pull()
-		return self.local.values()
-
-	def items(self):
-		self.pull()
-		return self.local.items()
-
-	def iteritems(self):
-		self.pull()
-		return self.local.iteritems()
-
-	def itervalues(self):
-		self.pull()
-		return self.local.itervalues()
-
-	def viewitems(self):
-		self.pull()
-		return self.local.viewitems()
-
-	def viewkeys(self):
-		self.pull()
-		return self.local.viewkeys()
-
-	def viewvalues(self):
-		self.pull()
-		return self.local.viewvalues()
-
+	def __delitem__(self, k):
+		self.local.pop(k, None)
 
 	# Gets the "heads" (instructions and data items) and head sizes from IDA
 	@ondemand
@@ -135,21 +102,21 @@ class IDAMem(dict):
 		return { s:(self.ida.idc.SegEnd(s) - self.ida.idc.SegStart(s)) for s in self.ida.idautils.Segments() }
 
 	# Returns a list of bytes that are in memory.
-	def ida_keys(self):
+	def __iter__(self):
 		keys = set()
 		l.debug("Getting segment addresses.")
 		for h,s in self.segments().iteritems():
 			for i in range(s):
 				keys.add(h+i)
+				yield h+i
 		l.debug("Getting non-segment addresses.")
 		for h,s in self.heads(exclude=keys).iteritems():
 			for i in range(s):
-				keys.add(h+i)
+				yield h+i
 		l.debug("Done getting keys.")
-		return list(keys)
 
-	def keys(self):
-		return list(set(self.ida_keys() + self.local.keys()))
+	def __len__(self):
+		return len(list(self.__iter__()))
 
 	# tries to quickly get a bunch of memory from IDA
 	# returns a dictionary where d[start] = content to support sparsely-defined memory in IDA
@@ -188,18 +155,6 @@ class IDAMem(dict):
 			for n,i in enumerate(bytes):
 				if start+n not in self.local:
 					self.local[start+n] = i
-
-	# Pulls all the "mapped" memory from IDA
-	def pull(self):
-		keys = self.ida_keys()
-		def kf(x, c=itertools.count()):
-			return next(c)-x
-
-		ranges = [ (r[0], r[-1]) for r in [ list(g) for (x,g) in itertools.groupby(keys, kf) ] ]
-
-		for a,b in ranges:
-			size = b-a+1
-			self.load_memory(a, size)
 
 	def reset(self):
 		self.local.clear()
