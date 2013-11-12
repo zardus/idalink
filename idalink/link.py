@@ -54,7 +54,7 @@ class IDALinkError(Exception):
 	pass
 
 class IDALink:
-	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, initial_mem = { }):
+	def __init__(self, filename, ida_prog, connect_retries = 60, port = None):
 		port = port if port else random.randint(40000, 49999)
 		spawn_ida(filename, ida_prog, port)
                 self.filename = filename
@@ -65,8 +65,8 @@ class IDALink:
 				time.sleep(1)
 				l.debug("Trying to connect to IDA on port %d" % port)
 				self.link, self.idc, self.idaapi, self.idautils = connect_ida(port)
-				self.mem = CachedIDAMem(self, initial_mem)
-				self.perms = CachedIDAPerms(self, initial_mem)
+				self.mem = CachedIDAMem(self)
+				self.perms = CachedIDAPerms(self)
 				return
 			except socket.error:
 				l.debug("... failed. Retrying.")

@@ -26,6 +26,7 @@ class IDAKeys(collections.MutableMapping):
 	# Gets the "heads" (instructions and data items) and head sizes from IDA
 	@ondemand
 	def heads(self, exclude = ()):
+		l.debug("Getting heads from IDA for file %s" % self.ida.filename)
 		keys = [ -1 ] + list(exclude) + [ self.ida.idc.MAXADDR + 1 ]
 		ranges = [ j for j in [ ((keys[i]+1, keys[i+1]-1) if keys[i+1] - keys[i] > 1 else ()) for i in range(len(keys)-1) ] if j ]
 
@@ -37,17 +38,16 @@ class IDAKeys(collections.MutableMapping):
 
 	@ondemand
 	def segments(self):
+		l.debug("Getting segments from IDA for file %s" % self.ida.filename)
 		return { s:(self.ida.idc.SegEnd(s) - self.ida.idc.SegStart(s)) for s in self.ida.idautils.Segments() }
 
 	# Iterates over the addresses that are loaded in IDA
 	@ondemand
 	def idakeys(self):
 		keys = set()
-		l.debug("Getting segment addresses.")
 		for h,s in self.segments().iteritems():
 			for i in range(s):
 				keys.add(h+i)
-		l.debug("Getting non-segment addresses.")
 		for h,s in self.heads(exclude=keys).iteritems():
 			for i in range(s):
 				keys.add(h+i)
@@ -63,6 +63,11 @@ class IDAKeys(collections.MutableMapping):
 
 	def __contains__(self, k):
 		return k in self.keys()
+
+	def reset(self):
+		if hasattr(self, "_heads"): delattr(self, "_heads")
+		if hasattr(self, "_segments"): delattr(self, "_segments")
+		if hasattr(self, "_idakeys"): delattr(self, "_idakeys")
 
 class IDAPerms(IDAKeys):
 	def __init__(self, ida, default_perm=7):
@@ -113,14 +118,20 @@ class CachedIDAPerms(IDAPerms):
 	def __delitem__(self, b):
 		self.permissions.pop(b, None)
 
+	def reset(self):
+		self.permissions.clear()
+		super(CachedIDAPerms, self).reset()
+
 class IDAMem(IDAKeys):
 	def __init__(self, ida, default_byte=chr(0xff)):
 		super(IDAMem, self).__init__(ida)
+		self.default_byte = default_byte
 
 	def __getitem__(self, b):
 		# only do things that we actually have in IDA
 		if b not in self:
 			raise KeyError(b)
+		#l.debug("Getting byte 0x%x from IDA for file %s" % (b, self.ida.filename))
 		v = self.ida.idaapi.get_many_bytes(b, 1)
 		return v if v is not None else self.default_byte
 
@@ -133,9 +144,8 @@ class IDAMem(IDAKeys):
 
 class CachedIDAMem(IDAMem):
 	def __init__(self, ida, default_byte=chr(0xff)):
-		super(CachedIDAMem, self).__init__(ida)
+		super(CachedIDAMem, self).__init__(ida, default_byte)
 		self.local = { }
-		self.default_byte = default_byte
 
 	def __getitem__(self, b):
 		if b in self.local: return self.local[b]
@@ -150,7 +160,6 @@ class CachedIDAMem(IDAMem):
 			# otherwise, cache the segment
 			seg_end = self.ida.idc.SegEnd(b)
 			seg_size = seg_end - seg_start
-			l.debug("Loading %d bytes from 0x%x" % (seg_size, seg_start))
 			self.load_memory(seg_start, seg_size)
 
 		return one
@@ -164,6 +173,7 @@ class CachedIDAMem(IDAMem):
 	# tries to quickly get a bunch of memory from IDA
 	# returns a dictionary where d[start] = content to support sparsely-defined memory in IDA
 	def get_memory(self, start, size):
+		#l.debug("get_memory: %d bytes from %x" % (size, start))
 		d = { }
 		if size == 0:
 			return d
@@ -190,14 +200,14 @@ class CachedIDAMem(IDAMem):
 
 	def load_memory(self, start, size):
 		contents = self.get_memory(start, size)
+		#l.debug("Setting cache of %d bytes starting from 0x%x" % (size, start))
 
 		for start, bytes in contents.iteritems():
 			for n,i in enumerate(bytes):
 				if start+n not in self.local:
 					self.local[start+n] = i
+		#l.debug("Done")
 
 	def reset(self):
 		self.local.clear()
-
-		if hasattr(self, "_heads"): delattr(self, "_heads")
-		if hasattr(self, "_segments"): delattr(self, "_segments")
+		super(CachedIDAMem, self).reset()
