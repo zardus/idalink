@@ -9,7 +9,9 @@ import random
 import subprocess
 import socket
 
-from ida_mem import IDAMem, IDAPerms
+from ida_mem import IDAMem, IDAPerms, CachedIDAMem, CachedIDAPerms
+
+IDAMem, IDAPerms # to stop complaining
 
 # various locations
 module_dir = os.path.dirname(os.path.realpath(__file__))
@@ -63,8 +65,8 @@ class IDALink:
 				time.sleep(1)
 				l.debug("Trying to connect to IDA on port %d" % port)
 				self.link, self.idc, self.idaapi, self.idautils = connect_ida(port)
-				self.mem = IDAMem(self, initial_mem)
-				self.perms = IDAPerms(self, initial_mem)
+				self.mem = CachedIDAMem(self, initial_mem)
+				self.perms = CachedIDAPerms(self, initial_mem)
 				return
 			except socket.error:
 				l.debug("... failed. Retrying.")

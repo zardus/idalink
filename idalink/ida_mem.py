@@ -2,7 +2,7 @@
 
 import collections
 import logging
-l = logging.getLogger("ida_mem")
+l = logging.getLogger("idalink.ida_mem")
 
 def ondemand(f):
 	name = f.__name__
@@ -39,46 +39,69 @@ class IDAKeys(collections.MutableMapping):
 	def segments(self):
 		return { s:(self.ida.idc.SegEnd(s) - self.ida.idc.SegStart(s)) for s in self.ida.idautils.Segments() }
 
-	# Returns a list of bytes that are in memory.
-	def __iter__(self):
+	# Iterates over the addresses that are loaded in IDA
+	@ondemand
+	def idakeys(self):
 		keys = set()
 		l.debug("Getting segment addresses.")
 		for h,s in self.segments().iteritems():
 			for i in range(s):
 				keys.add(h+i)
-				yield h+i
 		l.debug("Getting non-segment addresses.")
 		for h,s in self.heads(exclude=keys).iteritems():
 			for i in range(s):
-				yield h+i
+				keys.add(h+i)
 		l.debug("Done getting keys.")
+		return keys
+
+	def __iter__(self):
+		for k in self.idakeys():
+			yield k
 
 	def __len__(self):
 		return len(list(self.__iter__()))
 
+	def __contains__(self, k):
+		return k in self.keys()
 
 class IDAPerms(IDAKeys):
-	def __init__(self, ida, caching = True, default_perm=7):
+	def __init__(self, ida, default_perm=7):
 		super(IDAPerms, self).__init__(ida)
-		self.permissions = { }
-		self.caching = caching
-		self.default_perm = default_perm
 
 	def __getitem__(self, b):
-		if b in self.permissions:
-			return self.permissions[b]
-
+		# only do things that we actually have in IDA
+		if b not in self:
+			raise KeyError(b)
 		seg_start = self.ida.idc.SegStart(b)
-		seg_end = self.ida.idc.SegEnd(b)
-
 		if seg_start == self.ida.idc.BADADDR:
 			# we can really only return the default here
 			return self.default_perm
+		return self.ida.idc.GetSegmentAttr(seg_start, self.ida.idc.SEGATTR_PERM)
 
-		p = self.ida.idc.GetSegmentAttr(seg_start, self.ida.idc.SEGATTR_PERM)
+	def __setitem__(self, b, v):
+		# nothing we can really do here
+		pass
 
-		# cache the segment if we're into that sort of stuff
-		if self.caching:
+	def __delitem__(self, b):
+		# nothing we can really do here
+		pass
+
+class CachedIDAPerms(IDAPerms):
+	def __init__(self, ida, default_perm=7):
+		super(CachedIDAPerms, self).__init__(ida)
+		self.permissions = { }
+		self.default_perm = default_perm
+
+	def __getitem__(self, b):
+		if b in self.permissions: return self.permissions[b]
+		p = super(CachedIDAPerms, self).__getitem__(b)
+
+		# cache the segment
+		seg_start = self.ida.idc.SegStart(b)
+		seg_end = self.ida.idc.SegEnd(b)
+		if seg_start == self.ida.idc.BADADDR:
+			self.permissions[b] = p
+		else:
 			for i in range(seg_start, seg_end):
 				self.permissions[i] = p
 
@@ -90,31 +113,34 @@ class IDAPerms(IDAKeys):
 	def __delitem__(self, b):
 		self.permissions.pop(b, None)
 
-
 class IDAMem(IDAKeys):
-	def __init__(self, ida, initial_mem = { }, caching = True, default_byte=chr(0xff)):
+	def __init__(self, ida, default_byte=chr(0xff)):
 		super(IDAMem, self).__init__(ida)
-		self.local = dict(initial_mem)
-		self.caching = caching
+
+	def __getitem__(self, b):
+		# only do things that we actually have in IDA
+		if b not in self:
+			raise KeyError(b)
+		v = self.ida.idaapi.get_many_bytes(b, 1)
+		return v if v is not None else self.default_byte
+
+	def __setitem__(self, b, v):
+		self.ida.idaapy.patch_byte(b, v)
+
+	def __delitem__(self, b):
+		# nothing we can really do here
+		pass
+
+class CachedIDAMem(IDAMem):
+	def __init__(self, ida, default_byte=chr(0xff)):
+		super(CachedIDAMem, self).__init__(ida)
+		self.local = { }
 		self.default_byte = default_byte
 
 	def __getitem__(self, b):
-		if b in self.local:
-			return self.local[b]
+		if b in self.local: return self.local[b]
 
-		one = self.ida.idaapi.get_many_bytes(b, 1)
-
-		if not one:
-			l.debug("Byte 0x%x not found", b)
-
-			if self.default_byte:
-				one = self.default_byte
-			else:
-				raise KeyError(b)
-
-		if not self.caching:
-			# return the byte if we're not caching
-			return one
+		one = super(CachedIDAMem, self).__getitem__(b)
 
 		# cache the byte if it's not in a segment
 		seg_start = self.ida.idc.SegStart(b)
@@ -145,18 +171,15 @@ class IDAMem(IDAKeys):
 		b = self.ida.idaapi.get_many_bytes(start, size)
 		if b is None:
 			if size == 1:
-				if self.default_byte:
-					d[start] = self.default_byte
-				else:
-					# TODO: this probably causes issues because keys() doesn't match with reality. Consider adapting
-					return d
+				d[start] = self.default_byte
 				return d
 
 			mid = start + size/2
 			first_size = mid - start
 			second_size = size - first_size
 
-			#l.debug("Split range [%x,%x) into [%x,%x) and [%x,%x)", start, start + size, start, start + first_size, mid, mid + second_size)
+			#l.debug("Split range [%x,%x) into [%x,%x) and [%x,%x)" %
+			#   (start, start + size, start, start + first_size, mid, mid + second_size))
 
 			d.update(self.get_memory(start, first_size))
 			d.update(self.get_memory(mid, second_size))
