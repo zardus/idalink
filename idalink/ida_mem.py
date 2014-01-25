@@ -4,6 +4,45 @@ import collections
 import logging
 l = logging.getLogger("idalink.ida_mem")
 
+def get_memory(idaapi, start, size, default_byte=None):
+	idaapi = idaapi if idaapi is not None else __import__('idaapi')
+
+	d = { }
+	if size == 0:
+		return d
+
+	b = idaapi.get_many_bytes(start, size)
+	if b is None:
+		if size == 1:
+			if default_byte is not None:
+				l.debug("Using default byte for %d", start)
+				d[start] = default_byte
+			return d
+
+		mid = start + size/2
+		first_size = mid - start
+		second_size = size - first_size
+
+		#l.debug("Split range [%x,%x) into [%x,%x) and [%x,%x)" %
+		#   (start, start + size, start, start + first_size, mid, mid + second_size))
+
+		left = get_memory(idaapi, start, first_size, default_byte=default_byte)
+		right = get_memory(idaapi, mid, second_size, default_byte=default_byte)
+
+		if default_byte is None:
+			# will be nonsequential
+			d.update(left)
+			d.update(right)
+		else:
+			# will be sequential, so let's combine it
+			left_str = "".join([ left[i] for i in sorted(left.keys()) ])
+			right_str = "".join([ right[i] for i in sorted(right.keys()) ])
+			d[start] = left_str + right_str
+	else:
+		d[start] = b
+
+	return d
+
 def ondemand(f):
 	name = f.__name__
 	def func(self, *args, **kwargs):
@@ -72,6 +111,7 @@ class IDAKeys(collections.MutableMapping):
 class IDAPerms(IDAKeys):
 	def __init__(self, ida, default_perm=7):
 		super(IDAPerms, self).__init__(ida)
+		self.default_perm = default_perm
 
 	def __getitem__(self, b):
 		# only do things that we actually have in IDA
@@ -146,10 +186,12 @@ class CachedIDAMem(IDAMem):
 	def __init__(self, ida, default_byte=chr(0xff)):
 		super(CachedIDAMem, self).__init__(ida, default_byte)
 		self.local = { }
+		self.pulled = False
 
 	def __getitem__(self, b):
 		if b in self.local: return self.local[b]
 
+		l.debug("Uncached byte: 0x%x", b)
 		one = super(CachedIDAMem, self).__getitem__(b)
 
 		# cache the byte if it's not in a segment
@@ -164,6 +206,12 @@ class CachedIDAMem(IDAMem):
 
 		return one
 
+	def __iter__(self):
+		if self.pulled:
+			return self.local.__iter__()
+		else:
+			return super(CachedIDAMem, self).__iter__()
+
 	def __setitem__(self, b, v):
 		self.local[b] = v
 
@@ -174,40 +222,35 @@ class CachedIDAMem(IDAMem):
 	# returns a dictionary where d[start] = content to support sparsely-defined memory in IDA
 	def get_memory(self, start, size):
 		#l.debug("get_memory: %d bytes from %x" % (size, start))
-		d = { }
-		if size == 0:
-			return d
+		return get_memory(self.ida.idaapi, start, size, default_byte=self.default_byte)
 
-		b = self.ida.idaapi.get_many_bytes(start, size)
-		if b is None:
-			if size == 1:
-				d[start] = self.default_byte
-				return d
-
-			mid = start + size/2
-			first_size = mid - start
-			second_size = size - first_size
-
-			#l.debug("Split range [%x,%x) into [%x,%x) and [%x,%x)" %
-			#   (start, start + size, start, start + first_size, mid, mid + second_size))
-
-			d.update(self.get_memory(start, first_size))
-			d.update(self.get_memory(mid, second_size))
-		else:
-			d[start] = b
-
-		return d
-
-	def load_memory(self, start, size):
-		contents = self.get_memory(start, size)
-		#l.debug("Setting cache of %d bytes starting from 0x%x" % (size, start))
-
-		for start, bytes in contents.iteritems():
-			for n,i in enumerate(bytes):
+	def store_loaded_chunks(self, chunks):
+		l.debug("Updating cache with %d chunks" % (len(chunks)))
+		for start, buff in chunks.iteritems():
+			for n,i in enumerate(buff):
 				if start+n not in self.local:
 					self.local[start+n] = i
 		#l.debug("Done")
 
+	def load_memory(self, start, size):
+		chunks = self.get_memory(start, size)
+		self.store_loaded_chunks(chunks)
+
 	def reset(self):
 		self.local.clear()
 		super(CachedIDAMem, self).reset()
+
+	def pull_defined(self):
+		if self.pulled:
+			return
+
+		start = self.ida.idc.MinEA()
+		size = self.ida.idc.MaxEA() - start
+
+		l.debug("Loading memory of %s (%d byes)...", self.ida.filename, size)
+		chunks = self.ida.remote_idalink_module.get_memory(None, start, size)
+
+		l.debug("Storing loaded memory of %s...", self.ida.filename)
+		self.store_loaded_chunks(chunks)
+
+		self.pulled = True
