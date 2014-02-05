@@ -19,7 +19,7 @@ ida_dir = module_dir
 import logging
 l = logging.getLogger("idalink")
 
-def spawn_ida(filename, ida_prog, port):
+def spawn_ida(filename, ida_prog, port, processor_type="metapc"):
 	fullpath = os.path.realpath(os.path.expanduser(filename))
 
 	# $IDADIR/$IDABIN -A -S"$SCRIPT $ARGS" -L$LOGFILE $FILE
@@ -35,6 +35,7 @@ def spawn_ida(filename, ida_prog, port):
 	command += [ ida_bin, "-A" ] # run IDA in automatic mode
 	command += [ "-S" + server_script + " " + server_args ] # run our server script in IDA
 	command += [ "-L" + log_file ] # log stuff
+	command += [ "-p" + processor_type ] # Custom processor type
 	command += [ fullpath ] # and, of course, load our file
 	subprocess.call(command)
 
@@ -52,9 +53,9 @@ class IDALinkError(Exception):
 	pass
 
 class IDALink:
-	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, pull=True):
+	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, pull=True, processor_type="metapc"):
 		port = port if port else random.randint(40000, 49999)
-		spawn_ida(filename, ida_prog, port)
+		spawn_ida(filename, ida_prog, port, processor_type)
 		self.filename = filename
 
 		self.link = None
