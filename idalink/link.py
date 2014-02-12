@@ -76,6 +76,11 @@ class IDALink:
 		self.remote_idalink_module = self.link.root.getmodule("idalink")
 		self.remote_link = self.remote_idalink_module.RemoteIDALink(self)
 
+		self.mem = None
+		self.perms = None
+		self.remake_mem(pull=pull)
+
+	def remake_mem(self, pull=True):
 		self.mem = CachedIDAMem(self)
 		if pull: self.mem.pull_defined()
 
