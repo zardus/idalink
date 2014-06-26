@@ -86,6 +86,12 @@ class IDALink:
 
 		self.perms = CachedIDAPerms(self)
 
+	def close(self):
+		try:
+			self.idc.Exit(0)
+		except EOFError:
+			pass
+
 class RemoteIDALink:
 	def __init__(self, link):
 		self.filename = link.filename
