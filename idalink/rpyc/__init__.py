@@ -33,23 +33,23 @@ Classic-style usage::
     >>> print c.eval("x + 2")
     7
     >>> print c.modules.os.listdir(".")       #doctest: +ELLIPSIS
-    [...] 
+    [...]
     >>> print c.modules["xml.dom.minidom"].parseString("<a/>")   #doctest: +ELLIPSIS
-    <xml.dom.minidom.Document instance at ...> 
+    <xml.dom.minidom.Document instance at ...>
     >>> f = c.builtin.open("foobar.txt", "rb")     #doctest: +SKIP
     >>> print f.read(100)     #doctest: +SKIP
     ...
 
 """
-from rpyc.core import (SocketStream, TunneledSocketStream, PipeStream, Channel,
+from .core import (SocketStream, TunneledSocketStream, PipeStream, Channel,
     Connection, Service, BaseNetref, AsyncResult, GenericException,
     AsyncResultTimeout, VoidService, SlaveService)
-from rpyc.utils.factory import (connect_stream, connect_channel, connect_pipes,
-    connect_stdpipes, connect, ssl_connect, discover, connect_by_service, connect_subproc, 
+from .utils.factory import (connect_stream, connect_channel, connect_pipes,
+    connect_stdpipes, connect, ssl_connect, discover, connect_by_service, connect_subproc,
     connect_thread, ssh_connect)
-from rpyc.utils.helpers import async, timed, buffiter, BgServingThread, restricted
-from rpyc.utils import classic
-from rpyc.version import version, version_string, release_date
+from .utils.helpers import async, timed, buffiter, BgServingThread, restricted
+from .utils import classic
+from .version import version, version_string, release_date
 
 __author__ = "Tomer Filiba (tomerfiliba@gmail.com)"
 __version__ = version
