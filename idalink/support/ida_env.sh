@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/bin/bash
 
 # Copyright (C) 2013- Yan Shoshitaishvili aka. zardus
-#                     Ruoyu Wang aka. fish
-#                     Andrew Dutcher aka. rhelmot
-#                     Kevin Borgolte aka. cao
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,22 +16,8 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-# idc is just within IDA, so make pylint stop complaining
-import idc      # pylint: disable=F0401
+export TERM=xterm
 
-# pylint: disable=W0403
-# :note: Those should be relative imports, but IDA doesn't like them.
-from rpyc.core import SlaveService
-from rpyc.utils.server import OneShotServer
-
-if __name__ == "__main__":
-    print "Received arguments: {}".format(idc.ARGV)
-
-    if idc.ARGV[1:]:
-        port = int(idc.ARGV[1])
-    else:
-        port = 18861
-
-    idc.Wait()
-    OneShotServer(SlaveService, port=port).start()
-    idc.Exit(0)
+IDA=$1
+shift
+$IDA "$@"
