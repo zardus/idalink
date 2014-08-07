@@ -53,9 +53,10 @@ class IDALinkError(Exception):
 	pass
 
 class IDALink:
-	def __init__(self, filename, ida_prog, connect_retries = 60, port = None, pull=True, processor_type="metapc"):
+	def __init__(self, filename, ida_prog, connect_retries=60, spawn=True, port=None, pull=True, processor_type="metapc"):
 		port = port if port else random.randint(40000, 49999)
-		spawn_ida(filename, ida_prog, port, processor_type)
+		if spawn:
+			spawn_ida(filename, ida_prog, port, processor_type)
 		self.filename = filename
 
 		self.link = None
