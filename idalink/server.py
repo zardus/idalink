@@ -36,11 +36,12 @@ if __name__ == "__main__":
     port = int(idc.ARGV[1]) if idc.ARGV[1:] else 18861
     mode = idc.ARGV[2] if idc.ARGV[2:] else "oneshot"
 
-    if mode == "threaded":
-        server = ThreadedServer
-    else:
-        server = OneShotServer
+    # :note: For speed, we don't want to idc.Wait() here,
+    #        but you might want to call it in your code
+    #        to make sure that autoanalysis has finished.
 
-    idc.Wait()
-    server(SlaveService, port=port).start()
-    idc.Exit(0)
+    if mode == "threaded":
+        ThreadedServer(SlaveService, port=port).start()
+    else:
+        OneShotServer(SlaveService, port=port).start()
+        idc.Exit(0)
