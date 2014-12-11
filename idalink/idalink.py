@@ -42,8 +42,10 @@ LOGFILE = "/tmp/idalink-{port}.log"
 
 
 # Helper functions
-def _ida_spawn(filename, ida_prog, port, processor_type="metapc"):
-    """Internal helper function to open IDA on the the file we want to analyse.
+def _ida_spawn(filename, ida_prog, port, mode="oneshot",
+               processor_type="metapc"):
+    """
+    Internal helper function to open IDA on the the file we want to analyse.
     """
     ida_path = "{dir}/{prog}".format(dir=IDA_DIR, prog=ida_prog)
     ida_realpath = os.path.realpath(os.path.expanduser(ida_path))
@@ -63,12 +65,14 @@ def _ida_spawn(filename, ida_prog, port, processor_type="metapc"):
 
     command_tpl = "screen -S idalink-{server_port} -d -m " \
                   "'{module_dir}/support/ida_env.sh' '{ida_path}' " \
-                  "-M -A -S'{module_dir}/server.py {server_port}' " \
+                  "-M -A "\
+                  "-S'{module_dir}/server.py {server_port} {server_mode}' " \
                   "-L'{logfile}' -p{processor} '{file}'"
 
     command = shlex.split(command_tpl.format(module_dir=MODULE_DIR,
                                              ida_path=ida_realpath,
                                              server_port=port,
+                                             server_mode=mode,
                                              logfile=logfile,
                                              processor=processor_type,
                                              file=file_realpath))
@@ -160,7 +164,7 @@ class IDALink(object):
 
 class idalink(object):
     def __init__(self, filename, ida_prog, retries=60, port=None,
-                 pull_memory=True, processor_type="metapc"):
+                 spawn=True, pull_memory=True, processor_type="metapc"):
         if port is None:
             port = random.randint(40000, 49999)
         # TODO: check if port is in use
@@ -171,7 +175,8 @@ class idalink(object):
         self._port = port
         self._pull_memory = pull_memory
 
-        _ida_spawn(self._filename, ida_prog, port, processor_type)
+        if spawn:
+            _ida_spawn(self._filename, ida_prog, port, processor_type)
 
     def __enter__(self):
         for _ in range(self._retries):

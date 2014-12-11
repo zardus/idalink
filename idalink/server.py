@@ -20,22 +20,27 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+import threading
+
 # idc is just within IDA, so make pylint stop complaining
 import idc      # pylint: disable=F0401
 
 # pylint: disable=W0403
 # :note: Those should be relative imports, but IDA doesn't like them.
 from rpyc.core import SlaveService
-from rpyc.utils.server import OneShotServer
+from rpyc.utils.server import OneShotServer, ThreadedServer
 
 if __name__ == "__main__":
     print "Received arguments: {}".format(idc.ARGV)
 
-    if idc.ARGV[1:]:
-        port = int(idc.ARGV[1])
+    port = int(idc.ARGV[1]) if idc.ARGV[1:] else 18861
+    mode = idc.ARGV[2] if idc.ARGV[2:] else "oneshot"
+
+    if mode == "threaded":
+        server = ThreadedServer
     else:
-        port = 18861
+        server = OneShotServer
 
     idc.Wait()
-    OneShotServer(SlaveService, port=port).start()
+    server(SlaveService, port=port).start()
     idc.Exit(0)
