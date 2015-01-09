@@ -45,8 +45,8 @@ LOGFILE = "/tmp/idalink-{port}.log"
 # Helper functions
 def _ida_spawn(filename, ida_prog, port, mode="oneshot",
                processor_type="metapc"):
-    """
-    Internal helper function to open IDA on the the file we want to analyse.
+    """Internal helper function to open IDA on the the file we want to
+    analyse.
     """
     ida_path = "{dir}/{prog}".format(dir=IDA_DIR, prog=ida_prog)
     ida_realpath = os.path.realpath(os.path.expanduser(ida_path))
