@@ -28,6 +28,7 @@ import shlex
 import socket
 import subprocess
 import time
+import warnings
 
 LOG = logging.getLogger("idalink")
 
@@ -203,3 +204,15 @@ class idalink(object):
                 self._link.idc.Exit(0)
         except EOFError:
             LOG.warning("EOF on link socket, IDA might still be running!")
+
+    @property
+    def link(self):
+        """Helper property to support the use of idalink without having to
+        use a with statement. This property will likely be deprecated and
+        might be removed at any point in the future.
+        """
+        warnings.warn("link property is pending deprecation",
+                      PendingDeprecationWarning)
+        if self._link is None:
+            self.__enter__()
+        return self._link
