@@ -1,59 +1,79 @@
 # idalink
 
-I created idalink to be able to easily use IDA's API for analysis without being stuck in the IDA interface. It's rather hackish, but that's your problem :-)
+idalink arose of the need to easily use IDA's API for analysis without wanting
+to be stuck in the IDA interface. It's rather hackish still and and we provide
+no warranty of any kind (express or implied), but we are doing our best to fix
+any issues you find. Pull requests are -of course- also encouraged!
 
-This works by spawning ida in screen in the background, and connecting to it using RPyC.
+idalink works by spawning an IDA CLI session in the background (in a detached
+screen session), and connects to it using RPyC.
 
 ## Requirements
 
 idalink requires the following:
 
-- ida
+- IDA
 - screen
+- libssl0.9.8:i386 (for IDA's Python version)
+
+idalink uses, but brings with it:
 - rpyc in your Python environment outside of IDA
-- rpyc in your IDA Python environment. This is actually included in the repository, because it's easier.
+- rpyc in your IDA Python environment. This is actually included in the
+  repository, because it's easier.
 
 ## Setup
 
-To setup idalink, replace the idal and idal64 symlinks in the idalink/ directory with symlinks to your actual idal and idal64 executables.
+To setup idalink, simply replace the idal and idal64 symlinks in the
+idalink/support directory with symlinks to your actual idal and idal64
+executables.
 
 ## Usage
 
-To use idalink, put it in a place where you can import it and do, in any python session (ie, outside of IDA):
+To use idalink, put it in a place where you can import it and do, in any python
+session (ie, outside of IDA):
 
-	import idalink
+    #!/usr/bin/env python
+    # -*- coding: utf-8 -*-
 
-	# if you want to change the log file location
-	# 	idalink.logfile = "/path/to/log/file"
-	# if you don't want to deal with the idal and idal64 symlinks
-	#	idalink.ida_dir = "/path/to/ida"
+    from idalink import idalink
 
-	# connect
-	ida = idalink.IDALink("/path/to/binary/file")
+    # We want debug messages for now
+    import logging
+    idalink_log = logging.getLogger("idalink")
+    idalink_log.addHandler(logging.StreamHandler())
+    idalink_log.setLevel(logging.DEBUG)
 
-	# use idc
-	print "Default ScreenEA is %x" % ida.idc.ScreenEA()
+    # Let's do some testing with idalink!
+    with idalink("./tests/bash", "idal64") as ida:
+        # use idc
+        s = ida.idc.ScreenEA()
+        print "Default ScreenEA is {:x}".format(s)
 
-	# use idautils
-	for s in ida.idautils.Segments():
-		print "Segment at %x is named %s" % (s, ida.idc.SegName(s))
+        # use idautils
+        print "All segments"
+        for s in ida.idautils.Segments():
+            print " - Segment at {:x} is named {}".format(s, ida.idc.SegName(s))
 
-	# use idaapi
-	for s in ida.idautils.Functions():
-		print "Byte at at %x is %x" % (s, ida.idaapi.get_byte(s))
+        # use idaapi
+        print "First byte for each function"
+        for i, s in enumerate(ida.idautils.Functions()):
+            print " - Byte at {:x} is {:02x}".format(s, ida.idaapi.get_byte(s))
 
-	# access IDA memory in a dict way
-	print "Byte at at %x is %x" % (s, ida.mem[s])
+        # access IDA memory in a dict way
+        print "Accessing memory directly"
+        functions = next(ida.idautils.Functions())
+        print " - Byte at {:x} is {}".format(s, ida.memory[s])
 
-	# close IDA (or allow it to be garbage-collected)
-	ida.link.close()
-
-And that's that. Basically, you get access to the IDA API from outside of IDA. Good stuff.
+And that's that. Basically, you get access to the IDA API from outside of IDA.
+Good stuff.
 
 ## Issues
 
-There are a few issues.
+Some issues remain, that we will take care of almost extremely soon:
 
-- the detection for whether to use idal or idal64 is very simplistic (greps for 32 or 64 in the output of the file command) and probably needs to be improved
-- a random port between 40000 and 49999 is chosen for communication, with no error-checking for failed IDA startups.
-- ida-backed memory is not really tested, and uses Heads for getting the "mapped" list, which is slow and incomplete
+- The detection for whether to use idal or idal64 is very simplistic (greps for
+  32 or 64 in the output of the file command) and probably needs to be improved
+- A random port between 40000 and 49999 is chosen for communication, with no
+  error-checking for failed IDA startups or if the port is already in use.
+- IDA-backed memory is not really tested, and uses Heads for getting the
+  "mapped" list, which is slow and incomplete

@@ -8,10 +8,10 @@ import socket
 import time
 
 from threading import Lock
-from rpyc.lib.compat import pickle, next, is_py3k, maxint, select_error
-from rpyc.lib.colls import WeakValueDict, RefCountingColl
-from rpyc.core import consts, brine, vinegar, netref
-from rpyc.core.async import AsyncResult
+from ..lib.compat import pickle, next, is_py3k, maxint, select_error
+from ..lib.colls import WeakValueDict, RefCountingColl
+from ..core import consts, brine, vinegar, netref
+from .async import AsyncResult
 
 class PingError(Exception):
     """The exception raised should :func:`Connection.ping` fail"""
@@ -69,7 +69,7 @@ Parameter                              Default value     Description
 =====================================  ================  =====================================================
 ``allow_safe_attrs``                   ``True``          Whether to allow the use of *safe* attributes
                                                          (only those listed as ``safe_attrs``)
-``allow_exposed_attrs``                ``True``          Whether to allow exposed attributes 
+``allow_exposed_attrs``                ``True``          Whether to allow exposed attributes
                                                          (attributes that start with the ``exposed_prefix``)
 ``allow_public_attrs``                 ``False``         Whether to allow public attributes
                                                          (attributes that don't start with ``_``)
@@ -85,25 +85,25 @@ Parameter                              Default value     Description
                                                          in the remote exception
 ``instantiate_custom_exceptions``      ``False``         Whether to allow instantiation of
                                                          custom exceptions (not the built in ones)
-``import_custom_exceptions``           ``False``         Whether to allow importing of 
+``import_custom_exceptions``           ``False``         Whether to allow importing of
                                                          exceptions from not-yet-imported modules
 ``instantiate_oldstyle_exceptions``    ``False``         Whether to allow instantiation of exceptions
                                                          which don't derive from ``Exception``. This
                                                          is not applicable for Python 3 and later.
 ``propagate_SystemExit_locally``       ``False``         Whether to propagate ``SystemExit``
-                                                         locally (kill the server) or to the other 
+                                                         locally (kill the server) or to the other
                                                          party (kill the client)
 ``logger``                             ``None``          The logger instance to use to log exceptions
                                                          (before they are sent to the other party)
                                                          and other events. If ``None``, no logging takes place.
 
 ``connid``                             ``None``          **Runtime**: the RPyC connection ID (used
-                                                         mainly for debugging purposes) 
+                                                         mainly for debugging purposes)
 ``credentials``                        ``None``          **Runtime**: the credentails object that was returned
                                                          by the server's :ref:`authenticator <api-authenticators>`
                                                          or ``None``
-``endpoints``                          ``None``          **Runtime**: The connection's endpoints. This is a tuple 
-                                                         made of the local socket endpoint (``getsockname``) and the 
+``endpoints``                          ``None``          **Runtime**: The connection's endpoints. This is a tuple
+                                                         made of the local socket endpoint (``getsockname``) and the
                                                          remote one (``getpeername``). This is set by the server
                                                          upon accepting a connection; client side connections
                                                          do no have this configuration option set.
@@ -115,13 +115,13 @@ _connection_id_generator = itertools.count(1)
 
 class Connection(object):
     """The RPyC *connection* (AKA *protocol*).
-    
+
     :param service: the :class:`Service <rpyc.core.service.Service>` to expose
     :param channel: the :class:`Channel <rpyc.core.channel.Channel>` over which messages are passed
-    :param config: the connection's configuration dict (overriding parameters 
+    :param config: the connection's configuration dict (overriding parameters
                    from the :data:`default configuration <DEFAULT_CONFIG>`)
     :param _lazy: whether or not to initialize the service with the creation of
-                  the connection. Default is True. If set to False, you will 
+                  the connection. Default is True. If set to False, you will
                   need to call :func:`_init_service` manually later
     """
     def __init__(self, service, channel, config = {}, _lazy = False):
@@ -178,7 +178,7 @@ class Connection(object):
         self._local_root = None
         #self._seqcounter = None
         #self._config.clear()
-    
+
     def close(self, _catchall = True):
         """closes the connection, releasing all held resources"""
         if self._closed:
@@ -204,13 +204,13 @@ class Connection(object):
         return self._channel.fileno()
 
     def ping(self, data = None, timeout = 3):
-        """       
+        """
         Asserts that the other party is functioning properly, by making sure
         the *data* is echoed back before the *timeout* expires
-        
+
         :param data: the data to send (leave ``None`` for the default buffer)
         :param timeout: the maximal time to wait for echo
-        
+
         :raises: :class:`PingError` if the echoed data does not match
         """
         if data is None:
@@ -375,8 +375,8 @@ class Connection(object):
         """Serves a single request or reply that arrives within the given
         time frame (default is 1 sec). Note that the dispatching of a request
         might trigger multiple (nested) requests, thus this function may be
-        reentrant. 
-        
+        reentrant.
+
         :returns: ``True`` if a request or reply were received, ``False``
                   otherwise.
         """
@@ -387,7 +387,7 @@ class Connection(object):
         return True
 
     def serve_all(self):
-        """Serves all requests and replies for as long as the connection is 
+        """Serves all requests and replies for as long as the connection is
         alive."""
         try:
             try:
@@ -403,7 +403,7 @@ class Connection(object):
 
     def poll_all(self, timeout = 0):
         """Serves all requests and replies that arrive within the given interval.
-        
+
         :returns: ``True`` if at least a single transaction was served, ``False`` otherwise
         """
         at_least_once = False
@@ -426,7 +426,7 @@ class Connection(object):
     #
     def sync_request(self, handler, *args):
         """Sends a synchronous request (waits for the reply to arrive)
-        
+
         :raises: any exception that the requets may be generated
         :returns: the result of the request
         """
@@ -444,7 +444,7 @@ class Connection(object):
         self._async_callbacks[seq] = callback
     def async_request(self, handler, *args, **kwargs):
         """Send an asynchronous request (does not wait for it to finish)
-        
+
         :returns: an :class:`rpyc.core.async.AsyncResult` object, which will
                   eventually hold the result (or exception)
         """

@@ -1,7 +1,7 @@
-from rpyc.core.stream import SocketStream, TunneledSocketStream, PipeStream
-from rpyc.core.channel import Channel
-from rpyc.core.protocol import Connection
-from rpyc.core.netref import BaseNetref
-from rpyc.core.async import AsyncResult, AsyncResultTimeout
-from rpyc.core.service import Service, VoidService, SlaveService
-from rpyc.core.vinegar import GenericException
+from .stream import SocketStream, TunneledSocketStream, PipeStream
+from .channel import Channel
+from .protocol import Connection
+from .netref import BaseNetref
+from .async import AsyncResult, AsyncResultTimeout
+from .service import Service, VoidService, SlaveService
+from .vinegar import GenericException
