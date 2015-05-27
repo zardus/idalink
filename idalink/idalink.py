@@ -22,7 +22,7 @@
 
 # Standard library imports
 import logging
-import os.path
+import os
 import random
 import shlex
 import socket
@@ -41,20 +41,33 @@ MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 IDA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "support/")
 LOGFILE = "/tmp/idalink-{port}.log"
 
+def which(filename):
+    if '/' in filename:
+        if os.path.exists(filename) and \
+                os.access(filename, os.X_OK):
+            return filename
+        return None
+    path_entries = os.getenv('PATH').split(os.path.pathsep)
+    for entry in path_entries:
+        filepath = os.path.join(entry, filename)
+        if os.path.exists(filepath) and \
+                os.access(filepath, os.X_OK):
+            return filepath
+    return None
 
 # Helper functions
-def _ida_spawn(filename, ida_prog, port, mode="oneshot",
+def _ida_spawn(filename, ida_path, port, mode="oneshot",
                processor_type="metapc"):
     """Internal helper function to open IDA on the the file we want to
     analyse.
     """
-    ida_path = "{dir}/{prog}".format(dir=IDA_DIR, prog=ida_prog)
-    ida_realpath = os.path.realpath(os.path.expanduser(ida_path))
+
+    ida_realpath = os.path.expanduser(ida_path)
     file_realpath = os.path.realpath(os.path.expanduser(filename))
     logfile = LOGFILE.format(port=port)
 
     LOG.info("Launching IDA (%s) on %s, listening on port %d, logging to %s",
-             ida_prog, file_realpath, port, logfile)
+             ida_realpath, file_realpath, port, logfile)
 
     # :note: We run IDA through screen because otherwise its UI will hang.
     #        We also setup the environment for IDA.
@@ -176,8 +189,12 @@ class idalink(object):
         self._port = port
         self._pull_memory = pull_memory
 
+        progname = which(ida_prog)
+        if progname is None:
+            raise IDALinkError("Could not find executable %s" % ida_prog)
+
         if spawn:
-            _ida_spawn(self._filename, ida_prog, port, processor_type)
+            _ida_spawn(self._filename, progname, port, processor_type)
 
     def __enter__(self):
         for _ in range(self._retries):
