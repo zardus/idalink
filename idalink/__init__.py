@@ -25,5 +25,5 @@
 from .idalink import MODULE_DIR, IDA_DIR, LOGFILE, idalink, RemoteIDALink
 from .memory import get_memory
 
-__all__ = ["MODULE_DIR", "IDA_DIR", "LOGFILE", "idalink", "RemoteIDALink",
-           "get_memory"]
+__all__ = ['MODULE_DIR', 'IDA_DIR', 'LOGFILE', 'idalink', 'RemoteIDALink',
+           'get_memory']

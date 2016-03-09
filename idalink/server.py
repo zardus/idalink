@@ -20,27 +20,28 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+from __future__ import print_function
+
 import threading
 
 # idc is just within IDA, so make pylint stop complaining
 import idc      # pylint: disable=F0401
 
-# pylint: disable=W0403
-# :note: Those should be relative imports, but IDA doesn't like them.
 from rpyc.core import SlaveService
 from rpyc.utils.server import OneShotServer, ThreadedServer
 
-if __name__ == "__main__":
-    print "Received arguments: {}".format(idc.ARGV)
+
+if __name__ == '__main__':
+    print('Received arguments: {}'.format(idc.ARGV))
 
     port = int(idc.ARGV[1]) if idc.ARGV[1:] else 18861
-    mode = idc.ARGV[2] if idc.ARGV[2:] else "oneshot"
+    mode = idc.ARGV[2] if idc.ARGV[2:] else 'oneshot'
 
     # :note: For speed, we don't want to idc.Wait() here,
     #        but you might want to call it in your code
     #        to make sure that autoanalysis has finished.
 
-    if mode == "threaded":
+    if mode == 'threaded':
         ThreadedServer(SlaveService, port=port).start()
     else:
         OneShotServer(SlaveService, port=port).start()

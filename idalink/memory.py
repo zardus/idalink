@@ -20,14 +20,14 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-__all__ = ["get_memory", "IDAMemory", "CachedIDAMemory",
-           "IDAPermissions", "CachedIDAPermissions"]
+__all__ = ['get_memory', 'IDAMemory', 'CachedIDAMemory',
+           'IDAPermissions', 'CachedIDAPermissions']
 
 import collections
 import itertools
 import logging
 import operator
-LOG = logging.getLogger("idalink.ida_mem")
+LOG = logging.getLogger('idalink.ida_mem')
 
 
 # Helper functions.
@@ -46,11 +46,11 @@ def _ondemand(f):
 
     def func(self, *args, **kwargs):
         if not args and not kwargs:
-            if hasattr(self, "_" + name):
-                return getattr(self, "_" + name)
+            if hasattr(self, '_%s' % name):
+                return getattr(self, '_%s' name)
 
             a = f(self, *args, **kwargs)
-            setattr(self, "_" + name, a)
+            setattr(self, '_%s' % name, a)
             return a
         else:
             return f(self, *args, **kwargs)
@@ -62,7 +62,7 @@ def _ondemand(f):
 def get_memory(idaapi, start, size, default_byte=None):
     # TODO: Documentation
     if idaapi is None:
-        idaapi = __import__("idaapi")
+        idaapi = __import__('idaapi')
 
     if size == 0:
         return {}
@@ -74,7 +74,7 @@ def get_memory(idaapi, start, size, default_byte=None):
     if at_address is None:    # It was not, resort to binary research
         if size == 1:
             if default_byte is not None:
-                LOG.debug("Using default byte for %d", start)
+                LOG.debug('Using default byte for %d', start)
                 d[start] = default_byte
             return d
 
@@ -93,7 +93,7 @@ def get_memory(idaapi, start, size, default_byte=None):
             # it will be sequential, so let's combine it
             chained = itertools.chain(_dict_values_sorted_by_key(left),
                                       _dict_values_sorted_by_key(right))
-            d[start] = "".join(chained)
+            d[start] = ''.join(chained)
     else:
         d[start] = at_address
 
@@ -110,7 +110,7 @@ class IDAKeys(collections.MutableMapping):  # pylint: disable=W0223
     @_ondemand
     def heads(self, exclude=()):
         # TODO: Documentation
-        LOG.debug("Getting heads from IDA for file %s", self.ida.filename)
+        LOG.debug('Getting heads from IDA for file %s', self.ida.filename)
         keys = [-1] + list(exclude) + [self.ida.idc.MAXADDR + 1]
         ranges = []
         for i in range(len(keys) - 1):
@@ -127,7 +127,7 @@ class IDAKeys(collections.MutableMapping):  # pylint: disable=W0223
     @_ondemand
     def segments(self):
         # TODO: Documentation
-        LOG.debug("Getting segments from IDA for file %s", self.ida.filename)
+        LOG.debug('Getting segments from IDA for file %s', self.ida.filename)
         segments_size = {}
         for s in self.ida.idautils.Segments():
             segments_size[s] = self.ida.idc.SegEnd(s) - self.ida.idc.SegStart(s)
@@ -143,7 +143,7 @@ class IDAKeys(collections.MutableMapping):  # pylint: disable=W0223
         for h, s in self.heads(exclude=keys).iteritems():
             for i in range(s):
                 keys.add(h + i)
-        LOG.debug("Done getting keys.")
+        LOG.debug('Done getting keys.')
         return keys
 
     def __iter__(self):
@@ -161,12 +161,12 @@ class IDAKeys(collections.MutableMapping):  # pylint: disable=W0223
 
     def reset(self):
         # TODO: Documentation
-        if hasattr(self, "_heads"):
-            delattr(self, "_heads")
-        if hasattr(self, "_segments"):
-            delattr(self, "_segments")
-        if hasattr(self, "_idakeys"):
-            delattr(self, "_idakeys")
+        if hasattr(self, '_heads'):
+            delattr(self, '_heads')
+        if hasattr(self, '_segments'):
+            delattr(self, '_segments')
+        if hasattr(self, '_idakeys'):
+            delattr(self, '_idakeys')
 
 
 class IDAPermissions(IDAKeys):
@@ -268,7 +268,7 @@ class CachedIDAMemory(IDAMemory):
         if address in self.local:
             return self.local[address]
 
-        LOG.debug("Uncached byte: 0x%x", address)
+        LOG.debug('Uncached byte: 0x%x', address)
         one = super(CachedIDAMemory, self).__getitem__(address)
 
         # cache the byte if it's not in a segment
@@ -299,7 +299,7 @@ class CachedIDAMemory(IDAMemory):
         """Retrieve an area of memory from IDA.
         Returns a sparse dictionary of address -> value.
         """
-        LOG.debug("get_memory: %d bytes from %x", size, start)
+        LOG.debug('get_memory: %d bytes from %x', size, start)
         return get_memory(self.ida.idaapi, start, size,
                           default_byte=self.default_byte)
 
@@ -310,10 +310,10 @@ class CachedIDAMemory(IDAMemory):
         start = self.ida.idc.MinEA()
         size = self.ida.idc.MaxEA() - start
 
-        LOG.debug("Loading memory of %s (%d bytes)...", self.ida.filename, size)
+        LOG.debug('Loading memory of %s (%d bytes)...', self.ida.filename, size)
         chunks = self.ida.remote_idalink_module.get_memory(None, start, size)
 
-        LOG.debug("Storing loaded memory of %s...", self.ida.filename)
+        LOG.debug('Storing loaded memory of %s...', self.ida.filename)
         self._store_loaded_chunks(chunks)
 
         self._pulled = True
@@ -329,7 +329,7 @@ class CachedIDAMemory(IDAMemory):
         self.store_loaded_chunks(chunks)
 
     def _store_loaded_chunks(self, chunks):
-        LOG.debug("Updating cache with %d chunks", len(chunks))
+        LOG.debug('Updating cache with %d chunks', len(chunks))
         for start, buff in chunks.iteritems():
             for n, i in enumerate(buff):
                 if start + n not in self.local:
