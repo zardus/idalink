@@ -24,52 +24,55 @@
 import logging
 import os
 import random
-import shlex
 import socket
 import subprocess
+import sys
+import tempfile
 import time
 import warnings
 
-LOG = logging.getLogger("idalink")
+from rpyc import classic as rpyc_classic
 
 # Local imports
-from .rpyc import classic as rpyc_classic
 from .memory import CachedIDAMemory, CachedIDAPermissions
 
 # Constants
+LOG = logging.getLogger('idalink')
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
-IDA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "support/")
-LOGFILE = "/tmp/idalink-{port}.log"
+IDA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'support')
+LOGFILE = os.path.join(tempfile.gettempdir(), 'idalink-{port}.log')
 
-def which(filename):
-    if '/' in filename:
-        if os.path.exists(filename) and \
-                os.access(filename, os.X_OK):
+
+def _which(filename):
+    if os.path.pathsep in filename:
+        if os.path.exists(filename) and os.access(filename, os.X_OK):
             return filename
         return None
     path_entries = os.getenv('PATH').split(os.path.pathsep)
     for entry in path_entries:
         filepath = os.path.join(entry, filename)
-        if os.path.exists(filepath) and \
-                os.access(filepath, os.X_OK):
+        if os.path.exists(filepath) and os.access(filepath, os.X_OK):
             return filepath
     return None
 
+
 # Helper functions
-def _ida_spawn(filename, ida_path, port, mode="oneshot",
-               processor_type="metapc"):
+def _ida_spawn(filename, ida_path, port=18861, mode='oneshot',
+               processor_type='metapc'):
     """Internal helper function to open IDA on the the file we want to
     analyse.
     """
 
     ida_realpath = os.path.expanduser(ida_path)
     file_realpath = os.path.realpath(os.path.expanduser(filename))
+    server_script = os.path.join(MODULE_DIR, 'server.py')
     logfile = LOGFILE.format(port=port)
 
-    LOG.info("Launching IDA (%s) on %s, listening on port %d, logging to %s",
+    LOG.info('Launching IDA (%s) on %s, listening on port %d, logging to %s',
              ida_realpath, file_realpath, port, logfile)
 
-    # :note: We run IDA through screen because otherwise its UI will hang.
+    # :note: On Linux, we run IDA through screen because otherwise its UI will
+    #        hang.
     #        We also setup the environment for IDA.
     #        The other parameters are:
     #        -A     Automatic mode
@@ -77,44 +80,38 @@ def _ida_spawn(filename, ida_path, port, mode="oneshot",
     #        -L     Log all output to our logfile
     #        -p     Set the processor type
 
-    command_tpl = "screen -S idalink-{server_port} -d -m " \
-                  "'{module_dir}/support/ida_env.sh' '{ida_path}' " \
-                  "-M -A "\
-                  "-S'{module_dir}/server.py {server_port} {server_mode}' " \
-                  "-L'{logfile}' -p{processor} '{file}'"
+    if sys.platform.startswith('win'):
+        ida_env_script = os.path.join(MODULE_DIR, 'support', 'ida_env.bat')
+        command_prefix = None
+    else:
+        ida_env_script = os.path.join(MODULE_DIR, 'support', 'ida_env.sh')
+        command_prefix = ['screen', '-S', 'idalink-%d' % port, '-d', '-m']
 
-    command = shlex.split(command_tpl.format(module_dir=MODULE_DIR,
-                                             ida_path=ida_realpath,
-                                             server_port=port,
-                                             server_mode=mode,
-                                             logfile=logfile,
-                                             processor=processor_type,
-                                             file=file_realpath))
+    command = [
+        ida_env_script,
+        ida_realpath,
+        '-M',
+        '-A',
+        '-S%s %d %s' % (server_script, port, mode),
+        '-L"%s"' % logfile,
+        '-p%s' % processor_type,
+        file_realpath,
+    ]
 
-    # :note: The above is a bit more Pythonic, if it breaks, use this:
-    # screen_name = "idalink-{}".format(port)
-    # screen = ["screen", "-S", screen_name, "-d", "-m", "-L", "--"]
-    #
-    # ida_env = "{}/support/ida_env.sh".format(MODULE_DIR)
-    # ida_options = ["-M", "-A",
-    #                "-p{}".format(processor_type),
-    #                "-S{}/server.py {}".format(MODULE_DIR, port),  # idalink
-    #                "-L{}".format(logfile)]                        # logfile
-    #
-    # ida = [ida_env, ida_realpath]
-    # command = screen + ida + ida_options + [file_realpath]
+    if command_prefix:
+        command = command_prefix + command
 
-    LOG.debug("IDA command is %s", " ".join(command))
+    LOG.debug('IDA command is %s', ' '.join(command))
     subprocess.call(command)
 
 
 def _ida_connect(port):
-    link = rpyc_classic.connect("localhost", port)
-    LOG.debug("Connected to port %d", port)
+    link = rpyc_classic.connect('localhost', port)
+    LOG.debug('Connected to port %d', port)
 
-    idc = link.root.getmodule("idc")
-    idaapi = link.root.getmodule("idaapi")
-    idautils = link.root.getmodule("idautils")
+    idc = link.root.getmodule('idc')
+    idaapi = link.root.getmodule('idaapi')
+    idautils = link.root.getmodule('idautils')
 
     return link, idc, idaapi, idautils
 
@@ -144,7 +141,7 @@ class IDALink(object):
         self.idaapi = idaapi
         self.idautils = idautils
 
-        self.remote_idalink_module = link.root.getmodule("idalink")
+        self.remote_idalink_module = link.root.getmodule('idalink')
         self.remote_link = self.remote_idalink_module.RemoteIDALink(filename)
 
         self._memory = None
@@ -178,7 +175,7 @@ class IDALink(object):
 
 class idalink(object):
     def __init__(self, filename, ida_prog, retries=60, port=None,
-                 spawn=True, pull_memory=True, processor_type="metapc"):
+                 spawn=True, pull_memory=True, processor_type='metapc'):
         if port is None:
             port = random.randint(40000, 49999)
         # TODO: check if port is in use
@@ -189,9 +186,9 @@ class idalink(object):
         self._port = port
         self._pull_memory = pull_memory
 
-        progname = which(ida_prog)
+        progname = _which(ida_prog)
         if progname is None:
-            raise IDALinkError("Could not find executable %s" % ida_prog)
+            raise IDALinkError('Could not find executable %s' % ida_prog)
 
         if spawn:
             _ida_spawn(self._filename, progname, port, processor_type)
@@ -201,17 +198,17 @@ class idalink(object):
             # TODO: detect IDA failure intelligently
             try:
                 time.sleep(1)
-                LOG.debug("Trying to connect to IDA on port %d", self._port)
+                LOG.debug('Trying to connect to IDA on port %d', self._port)
                 self._link = IDALink(*_ida_connect(self._port),
                                      filename=self._filename,
                                      pull_memory=self._pull_memory)
                 break
             except socket.error:
-                LOG.debug("... failed. Retrying.")
+                LOG.debug('... failed. Retrying.')
 
         if self._link is None:
-            raise IDALinkError(("Failed to connect to IDA on port {} for "
-                                "file {}").format(self._port, self._filename))
+            raise IDALinkError(('Failed to connect to IDA on port {} for '
+                                'file {}').format(self._port, self._filename))
 
         return self._link
 
@@ -220,7 +217,7 @@ class idalink(object):
             if self._link:
                 self._link.idc.Exit(0)
         except EOFError:
-            LOG.warning("EOF on link socket, IDA might still be running!")
+            LOG.warning('EOF on link socket, IDA might still be running!')
 
     @property
     def link(self):
@@ -228,7 +225,7 @@ class idalink(object):
         use a with statement. This property will likely be deprecated and
         might be removed at any point in the future.
         """
-        warnings.warn("link property is pending deprecation",
+        warnings.warn('link property is pending deprecation',
                       PendingDeprecationWarning)
         if self._link is None:
             self.__enter__()
