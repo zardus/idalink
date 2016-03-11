@@ -47,7 +47,7 @@ def _ondemand(f):
     def func(self, *args, **kwargs):
         if not args and not kwargs:
             if hasattr(self, '_%s' % name):
-                return getattr(self, '_%s' name)
+                return getattr(self, '_%s' % name)
 
             a = f(self, *args, **kwargs)
             setattr(self, '_%s' % name, a)

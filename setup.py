@@ -7,11 +7,11 @@ setup(
     version='0.10',
     url='https://github.com/zardus/idalink',
     license='GNU General Public License v3',
-    packages=find_packages('idalink'),
+    packages=find_packages(),
     package_data={
-        'idalink': ['support/*.sh']
+        'idalink': ['support/*'],
     },
     install_requires=[
-        'rpyc'
+        'rpyc',
     ],
 )
