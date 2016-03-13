@@ -36,6 +36,7 @@ from rpyc import classic as rpyc_classic
 # Local imports
 from .memory import CachedIDAMemory, CachedIDAPermissions
 
+
 # Constants
 LOG = logging.getLogger('idalink')
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -56,14 +57,27 @@ def _which(filename):
     return None
 
 
-# Helper functions
-def _ida_spawn(filename, ida_path, port=18861, mode='oneshot',
-               processor_type='metapc'):
-    """Internal helper function to open IDA on the the file we want to
-    analyse.
-    """
+def _ida_connect(host, port):
+    link = rpyc_classic.connect(host, port)
+    LOG.debug('Connected to %s:%d', host, port)
 
-    ida_realpath = os.path.expanduser(ida_path)
+    idc = link.root.getmodule('idc')
+    idaapi = link.root.getmodule('idaapi')
+    idautils = link.root.getmodule('idautils')
+
+    return link, idc, idaapi, idautils
+
+
+def ida_spawn(filename, ida_path, port=18861, mode='oneshot',
+              processor_type='metapc'):
+    """
+    Open IDA on the the file we want to analyse.
+    """
+    ida_progname = _which(ida_path)
+    if ida_progname is None:
+        raise IDALinkError('Could not find executable %s' % ida_path)
+
+    ida_realpath = os.path.expanduser(ida_progname)
     file_realpath = os.path.realpath(os.path.expanduser(filename))
     server_script = os.path.join(MODULE_DIR, 'server.py')
     logfile = LOGFILE.format(port=port)
@@ -102,18 +116,7 @@ def _ida_spawn(filename, ida_path, port=18861, mode='oneshot',
         command = command_prefix + command
 
     LOG.debug('IDA command is %s', ' '.join(command))
-    subprocess.call(command)
-
-
-def _ida_connect(port):
-    link = rpyc_classic.connect('localhost', port)
-    LOG.debug('Connected to port %d', port)
-
-    idc = link.root.getmodule('idc')
-    idaapi = link.root.getmodule('idaapi')
-    idautils = link.root.getmodule('idautils')
-
-    return link, idc, idaapi, idautils
+    return subprocess.call(command)
 
 
 class IDALinkError(Exception):
@@ -174,32 +177,33 @@ class IDALink(object):
 
 
 class idalink(object):
-    def __init__(self, filename, ida_prog, retries=60, port=None,
-                 spawn=True, pull_memory=True, processor_type='metapc'):
+    """
+    Opens a file in IDA locally.
+    """
+
+    def __init__(self, filename, ida_path, retries=60, port=None,
+                 pull_memory=True, processor_type='metapc'):
         if port is None:
             port = random.randint(40000, 49999)
         # TODO: check if port is in use
 
         self._link = None
-        self._filename = os.path.realpath(os.path.join(os.getcwd(), filename))
-        self._retries = retries
+        self._host = 'localhost'
         self._port = port
+        self._filename = os.path.realpath(os.path.join(os.getcwd(), filename)) 
+        self._retries = retries
         self._pull_memory = pull_memory
 
-        progname = _which(ida_prog)
-        if progname is None:
-            raise IDALinkError('Could not find executable %s' % ida_prog)
-
-        if spawn:
-            _ida_spawn(self._filename, progname, port, processor_type)
+        ida_spawn(self._filename, ida_path, port, processor_type)
 
     def __enter__(self):
         for _ in range(self._retries):
             # TODO: detect IDA failure intelligently
             try:
                 time.sleep(1)
-                LOG.debug('Trying to connect to IDA on port %d', self._port)
-                self._link = IDALink(*_ida_connect(self._port),
+                LOG.debug('Trying to connect to IDA at %s:%d', self._host,
+                          self._port)
+                self._link = IDALink(*_ida_connect(self._host, self._port),
                                      filename=self._filename,
                                      pull_memory=self._pull_memory)
                 break
@@ -221,12 +225,28 @@ class idalink(object):
 
     @property
     def link(self):
-        """Helper property to support the use of idalink without having to
-        use a with statement. This property will likely be deprecated and
-        might be removed at any point in the future.
+        """
+        Helper property to support the use of idalink without having to use a
+        with statement. This property will likely be deprecated and might be
+        removed at any point in the future.
         """
         warnings.warn('link property is pending deprecation',
                       PendingDeprecationWarning)
         if self._link is None:
             self.__enter__()
         return self._link
+
+
+class remote_idalink(idalink):
+    """
+    Connects to a remote instance of IDA that is already running the idalink
+    server (e.g. via ida_spawn on a remote machine).
+    """
+
+    def __init__(self, host, port, retries=60, pull_memory=True):
+        self._link = None
+        self._host = host
+        self._port = port
+        self._filename = None
+        self._retries = retries
+        self._pull_memory = pull_memory

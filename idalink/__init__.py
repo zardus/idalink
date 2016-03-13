@@ -22,8 +22,9 @@
 
 # :note: RemoteIDALink and get_memory must only be exported for rpyc
 
-from .idalink import MODULE_DIR, IDA_DIR, LOGFILE, idalink, RemoteIDALink
+from .idalink import MODULE_DIR, IDA_DIR, LOGFILE, idalink, remote_idalink, \
+    RemoteIDALink, ida_spawn
 from .memory import get_memory
 
-__all__ = ['MODULE_DIR', 'IDA_DIR', 'LOGFILE', 'idalink', 'RemoteIDALink',
-           'get_memory']
+__all__ = ['MODULE_DIR', 'IDA_DIR', 'LOGFILE', 'idalink', 'remote_idalink',
+           'RemoteIDALink', 'ida_spawn', 'get_memory']
