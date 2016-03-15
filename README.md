@@ -12,20 +12,19 @@ screen session), and connects to it using RPyC.
 
 idalink requires the following:
 
-- IDA
-- screen
+- IDA Pro
+- screen (when running on Linux)
 - libssl0.9.8:i386 (for IDA's Python version)
 
-idalink uses, but brings with it:
+idalink uses:
 - rpyc in your Python environment outside of IDA
-- rpyc in your IDA Python environment. This is actually included in the
-  repository, because it's easier.
+- rpyc in your IDA Python environment.
 
 ## Setup
 
-To setup idalink, simply replace the idal and idal64 symlinks in the
-idalink/support directory with symlinks to your actual idal and idal64
-executables.
+To setup idalink, simply replace the idal/idaw and idal64/idaw64 symlinks in
+the idalink/support directory with symlinks to your actual idal/idaw and
+idal64/idaw64 executables.
 
 ## Usage
 
