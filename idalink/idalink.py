@@ -101,6 +101,14 @@ def ida_spawn(filename, ida_path, port=18861, mode='oneshot',
         ida_env_script = os.path.join(MODULE_DIR, 'support', 'ida_env.sh')
         command_prefix = ['screen', '-S', 'idalink-%d' % port, '-d', '-m']
 
+    if sys.platform == "darwin":
+        # If we are running in a virtual environment, which we should, we need
+        # to insert the python lib into the launched process in order for IDA 
+        # to not default back to the Apple-installed python because of the use 
+        # of paths in library identifiers on macOS.
+        if "VIRTUAL_ENV" in os.environ:
+            ida_env_script = os.path.join(MODULE_DIR, 'support', 'ida_macos_env.sh')
+
     command = [
         ida_env_script,
         ida_realpath,
