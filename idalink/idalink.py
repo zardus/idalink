@@ -202,7 +202,7 @@ class idalink(object):
         self._retries = retries
         self._pull_memory = pull_memory
 
-        ida_spawn(self._filename, ida_path, port, processor_type)
+        ida_spawn(self._filename, ida_path, port, processor_type=processor_type)
 
     def __enter__(self):
         for _ in range(self._retries):
