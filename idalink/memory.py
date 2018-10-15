@@ -1,9 +1,8 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2013- Yan Shoshitaishvili aka. zardus
 #                     Ruoyu Wang aka. fish
-#                     Andrew Dutcher aka. rhelmot
+#                     Audrey Dutcher aka. rhelmot
 #                     Kevin Borgolte aka. cao
 
 __all__ = ['get_memory', 'IDAMemory', 'CachedIDAMemory',
