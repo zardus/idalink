@@ -7,6 +7,10 @@ setup(
     version='0.11',
     url='https://github.com/zardus/idalink',
     license='GNU General Public License v3',
+    author='Zardus',
+    author_email='zardus@gmail.com',
+    maintainer='rhelmot',
+    maintainer_email='audrey@rhelmot.io',
     packages=find_packages(),
     install_requires=[
         'rpyc',
