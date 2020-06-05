@@ -26,6 +26,18 @@ MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 IDA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'support')
 LOGFILE = os.path.join(tempfile.gettempdir(), 'idalink-{port}.log')
 
+IDA_MODULES = ['idaapi',
+               'idc',
+               'idautils',
+               'ida_bytes',
+               'ida_kernwin',
+               'ida_name',
+               'ida_pro',
+               'ida_enum',
+               'ida_auto',
+               'ida_struct',
+               'ida_funcs']
+
 
 def _which(filename):
     if os.path.pathsep in filename:
@@ -60,7 +72,8 @@ def ida_connect(host='localhost', port=18861, retry=10):
             LOG.debug('Connected to %s:%d', host, port)
             return link
 
-    raise IDALinkError("Could not connect to %s:%d after %d tries" % (host, port, retry))
+    raise IDALinkError("Could not connect to "
+                       "%s:%d after %d tries" % (host, port, retry))
 
 
 def ida_spawn(ida_binary, filename, port=18861, mode='oneshot',
@@ -131,9 +144,12 @@ class RemoteIDALink(object):
     def __init__(self, filename):
         self.filename = filename
         self.link = None
-        self.idc = __import__('idc')
-        self.idaapi = __import__('idaapi')
-        self.idautils = __import__('idautils')
+
+        for m in IDA_MODULES:
+            try:
+                setattr(self, m, __import__(m))
+            except ImportError:
+                pass
 
         self.memory = CachedIDAMemory(self)
         self.permissions = CachedIDAPermissions(self)
@@ -163,15 +179,16 @@ class IDALink(object):
     :param bool pull_memory:
                             Whether to eagerly load all of memory on the first memory access
     """
+
     def __init__(self,
-            ida_binary=None,
-            filename=None,
-            host=None,
-            port=None,
-            retry=10,
-            processor_type=None,
-            logfile=None,
-            pull_memory=True):
+                 ida_binary=None,
+                 filename=None,
+                 host=None,
+                 port=None,
+                 retry=10,
+                 processor_type=None,
+                 logfile=None,
+                 pull_memory=True):
 
         if port is None:
             if host is not None:
@@ -194,9 +211,11 @@ class IDALink(object):
 
         self._link = ida_connect(host, port, retry=retry)
 
-        self.idc = self._link.root.getmodule('idc')
-        self.idaapi = self._link.root.getmodule('idaapi')
-        self.idautils = self._link.root.getmodule('idautils')
+        for m in IDA_MODULES:
+            try:
+                setattr(self, m, self._link.root.getmodule(m))
+            except ImportError:
+                pass
 
         self.remote_idalink_module = self._link.root.getmodule('idalink')
         self.remote_link = self.remote_idalink_module.RemoteIDALink(filename)
